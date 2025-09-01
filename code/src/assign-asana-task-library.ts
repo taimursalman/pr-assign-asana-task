@@ -313,7 +313,7 @@ export async function getReviewerEmail(
         return {
             reviewerLogin,
             reviewerEmail: '',
-            skipAssignment: false
+            skipAssignment: true
         };
     }
 }

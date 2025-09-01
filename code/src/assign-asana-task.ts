@@ -39,6 +39,8 @@ export const assignAsanaTaskAction = async () => {
             assigneeEmail = result.reviewerEmail;
         }
 
+        core.info(`Assignee Email: ${assigneeEmail}`);
+
         if (!taskId && !prUrl) {
             core.info('Neither Task ID nor PR Url provided, skipping task assignment');
         }

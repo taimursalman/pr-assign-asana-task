@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          sparse-checkout: './'
+          sparse-checkout: './action.yml'
           sparse-checkout-cone-mode: false
 
       - name: Get reviewer email
@@ -81,3 +81,4 @@ jobs:
           pr-url: ${{ github.event.pull_request.html_url }}
           project-id: ${{ secrets.asana_project_id }}
           assignee-email: ${{ steps.get-reviewer-email.outputs.reviewer_email }}
+          task-id: ${{ 1211197637401500 }}

@@ -1,4 +1,4 @@
-name: "Assign Asana Task"
+name: "Assign Asana Task on PR Review Request"
 description: "Assigns an existing Asana task to a user based on PR review request"
 author: "Taimur Salman"
 inputs:

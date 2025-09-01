@@ -79,4 +79,3 @@ jobs:
           project-id: ${{ secrets.asana_project_id }}
           branch-name: ${{ github.event.pull_request.head.ref }}
           reviewer-login: ${{ github.event.requested_reviewer.login }}
-          task-id: ${{ '1211198180030947' }}

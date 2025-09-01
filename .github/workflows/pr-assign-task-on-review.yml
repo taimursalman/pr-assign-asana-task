@@ -77,4 +77,5 @@ jobs:
           token: ${{ secrets.asana_access_token }}
           pr-url: ${{ github.event.pull_request.html_url }}
           project-id: ${{ secrets.asana_project_id }}
-          assignee-email: ${{ steps.get-reviewer-email.outputs.reviewer_email }}
+          branch-name: ${{ github.event.pull_request.head.ref }}
+          reviewer-login: ${{ github.event.requested_reviewer.login }}

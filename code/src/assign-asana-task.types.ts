@@ -55,3 +55,9 @@ export interface AsanaTaskSearchResponse {
     data: AsanaTaskSearchData[];
     next_page: AsanaTaskSearchLazyData | null;
 }
+
+export interface ReviewerEmailResult {
+    reviewerLogin: string;
+    reviewerEmail: string;
+    skipAssignment: boolean;
+}

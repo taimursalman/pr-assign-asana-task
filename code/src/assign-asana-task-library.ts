@@ -3,8 +3,9 @@ import {
     AsanaTaskResponse,
     AsanaTaskSearchResponse, AsanaUser,
     AsanaUserResponse,
-    AsanaWorkspaceResponse
+    AsanaWorkspaceResponse, ReviewerEmailResult
 } from "@/assign-asana-task.types";
+import {Octokit} from '@octokit/rest';
 // CodeReviewTaimurSDone: this file isnt following the TS formatting standards
 // CodeReviewTaimurDone: missing import for fetch
 
@@ -186,5 +187,133 @@ export const findAsanaUserByEmail = async (email: string, token: string, workspa
     } catch (error) {
         warning(`Failed to search for user with email ${email}: ${(error as Error).message}`);
         return null;
+    }
+}
+
+export async function getReviewerEmail(
+    octokit: Octokit,
+    reviewerLogin: string,
+    repository: string
+): Promise<ReviewerEmailResult> {
+    // Skip if reviewer is copilot or empty
+    if (!reviewerLogin || reviewerLogin.toLowerCase().includes('copilot')) {
+        console.log('Skipping assignment: reviewer is copilot or empty');
+        return {
+            reviewerLogin,
+            reviewerEmail: '',
+            skipAssignment: true
+        };
+    }
+
+    let reviewerEmail = '';
+    const [owner, repo] = repository.split('/');
+
+    try {
+        // Try Users API for public email
+        console.log('Attempting to get email via Users API...');
+        const userResponse = await octokit.rest.users.getByUsername({
+            username: reviewerLogin
+        });
+        reviewerEmail = userResponse.data.email || '';
+
+        // Try user's public events for commit emails
+        if (!reviewerEmail) {
+            console.log('Public email not available, checking user\'s public events...');
+            const eventsResponse = await octokit.rest.activity.listPublicEventsForUser({
+                username: reviewerLogin,
+                per_page: 30
+            });
+
+            for (const event of eventsResponse.data) {
+                if (event.type === 'PushEvent' && event.payload) {
+                    // Type assertion for PushEvent payload
+                    const pushPayload = event.payload as {
+                        commits?: Array<{
+                            author?: {
+                                email?: string;
+                                name?: string;
+                            };
+                        }>;
+                    };
+
+                    if (pushPayload.commits) {
+                        for (const commit of pushPayload.commits) {
+                            if (commit.author?.email && commit.author.name) {
+                                reviewerEmail = commit.author.email;
+                                break;
+                            }
+                        }
+                        if (reviewerEmail) break;
+                    }
+                }
+            }
+        }
+
+        // Search commits in current repository
+        if (!reviewerEmail) {
+            console.log('Searching commits in current repository...');
+            const commitsResponse = await octokit.rest.repos.listCommits({
+                owner,
+                repo,
+                author: reviewerLogin,
+                per_page: 50
+            });
+
+            if (commitsResponse.data.length > 0) {
+                reviewerEmail = commitsResponse.data[0].commit.author?.email || '';
+            }
+        }
+
+        // Search across all commits with broader search
+        if (!reviewerEmail) {
+            console.log('Searching all commits with broader search...');
+            const allCommitsResponse = await octokit.rest.repos.listCommits({
+                owner,
+                repo,
+                per_page: 100
+            });
+
+            for (const commit of allCommitsResponse.data) {
+                if (commit.author?.login === reviewerLogin) {
+                    reviewerEmail = commit.commit.author?.email || '';
+                    break;
+                }
+            }
+        }
+
+        // Check if user is a collaborator
+        if (!reviewerEmail) {
+            console.log('Checking if user is a collaborator...');
+            try {
+                await octokit.rest.repos.getCollaboratorPermissionLevel({
+                    owner,
+                    repo,
+                    username: reviewerLogin
+                });
+                console.log('User is a confirmed collaborator but email is private');
+            } catch (error) {
+                console.log('User is not a collaborator or error occurred');
+            }
+        }
+
+        if (!reviewerEmail) {
+            console.log('Could not retrieve email address. User likely has private email settings.');
+        }
+
+        console.log(`Final result - Reviewer: ${reviewerLogin}, Email: ${reviewerEmail}`);
+
+        return {
+            reviewerLogin,
+            reviewerEmail,
+            skipAssignment: false
+        };
+
+    } catch (error) {
+        console.error('Error retrieving reviewer email:', error);
+        return {
+            reviewerLogin,
+            reviewerEmail: '',
+            skipAssignment: false
+        };
     }
 }

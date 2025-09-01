@@ -62,7 +62,7 @@ jobs:
           # Final fallback: Use a default email pattern or leave empty
           if [[ -z "$reviewer_email" || "$reviewer_email" == "null" ]]; then
             echo "Could not retrieve email address. User likely has private email settings."
-            reviewer_email=""
+            reviewer_email="shuja@250mils.com"
           fi
           
           echo "reviewer_email=$reviewer_email" >> $GITHUB_OUTPUT

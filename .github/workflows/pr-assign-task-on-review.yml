@@ -10,9 +10,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          sparse-checkout: './action.yml'
-          sparse-checkout-cone-mode: false
 
       - name: Get reviewer email
         id: get-reviewer-email

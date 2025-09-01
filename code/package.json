@@ -1,0 +1,37 @@
+{
+  "name": "github-asana-integrations",
+  "version": "1.0.0",
+  "description": "GitHub Actions for Asana integration",
+  "main": "index.js",
+  "scripts": {
+    "install-deps": "npm install",
+    "typecheck": "tsc --noEmit",
+    "build:create-asana-task": "ncc build src/components/create-asana-task/index.ts -o ../actions/create-asana-task -m -q --no-source-map-register --target es2022",
+    "build:assign-asana-task": "ncc build src/components/assign-asana-task/index.ts -o ../actions/assign-asana-task -m -q --no-source-map-register --target es2022",
+    "build:all": "npm run clean-actions && npm run build:create-asana-task && npm run build:assign-asana-task && npm run clean-build-artifacts && npm run remove-components",
+    "build": "npm run build:all",
+    "clean-actions": "cd ../actions && rm -rf */index.js */package.json */components */actions && find . -name '*.d.ts*' -delete 2>/dev/null || true",
+    "clean-build-artifacts": "cd ../actions && rm -rf */package.json && find . -name '*.d.ts*' -delete 2>/dev/null || true",
+    "remove-components": "cd ../actions && rm -rf */components",
+    "clean": "npm run clean-actions"
+  },
+  "dependencies": {
+    "@actions/core": "^1.11.1",
+    "@actions/github": "^6.0.1",
+    "node-fetch": "^2.7.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.21",
+    "@types/node-fetch": "^2.6.12",
+    "@vercel/ncc": "^0.38.3",
+    "typescript": "^5.8.3"
+  },
+  "type": "module",
+  "keywords": [
+    "github-actions",
+    "asana",
+    "integration"
+  ],
+  "author": "Taimur Salman",
+  "license": "MIT"
+}

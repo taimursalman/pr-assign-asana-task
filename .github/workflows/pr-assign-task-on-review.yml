@@ -1,0 +1,81 @@
+name: Assign Asana Task on Review Request
+
+on:
+  pull_request:
+    types: [review_requested]
+
+jobs:
+  assign-asana-task:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get reviewer email
+        id: get-reviewer-email
+        run: |
+          # Get the requested reviewer's login (excluding copilot)
+          reviewer_login="${{ github.event.requested_reviewer.login }}"
+          echo "reviewer_login=$reviewer_login" >> $GITHUB_OUTPUT
+          
+          # Skip if reviewer is copilot or if no reviewer was requested
+          if [[ "$reviewer_login" == *"Copilot"* ]] || [[ -z "$reviewer_login" ]]; then
+            echo "Skipping assignment: reviewer is copilot or empty"
+            echo "skip_assignment=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          echo "skip_assignment=false" >> $GITHUB_OUTPUT
+          
+          # Try Users API for public email
+          echo "Attempting to get email via Users API..."
+          reviewer_email=$(gh api /users/$reviewer_login --jq '.email' 2>/dev/null || echo "")
+          
+          # Try user's public events for commit emails
+          if [[ -z "$reviewer_email" || "$reviewer_email" == "null" ]]; then
+            echo "Public email not available, checking user's public events..."
+            reviewer_email=$(gh api "/users/$reviewer_login/events/public" --jq '.[] | select(.type == "PushEvent") | .payload.commits[]? | select(.author.name != null) | .author.email' 2>/dev/null | head -1 || echo "")
+          fi
+          
+          # Search commits in current repository
+          if [[ -z "$reviewer_email" || "$reviewer_email" == "null" ]]; then
+            echo "Searching commits in current repository..."
+            reviewer_email=$(gh api "/repos/${{ github.repository }}/commits?author=$reviewer_login&per_page=50" --jq '.[0].commit.author.email' 2>/dev/null || echo "")
+          fi
+          
+          # Search across all commits with different pagination
+          if [[ -z "$reviewer_email" || "$reviewer_email" == "null" ]]; then
+            echo "Searching all commits with broader search..."
+            reviewer_email=$(gh api "/repos/${{ github.repository }}/commits?per_page=100" --jq --arg author "$reviewer_login" '.[] | select(.author.login == $author) | .commit.author.email' 2>/dev/null | head -1 || echo "")
+          fi
+          
+          # Try to get from collaborators API (if they're a collaborator)
+          if [[ -z "$reviewer_email" || "$reviewer_email" == "null" ]]; then
+            echo "Checking if user is a collaborator..."
+            # Note: This still won't give us email, but we can verify they're a valid collaborator
+            is_collaborator=$(gh api "/repos/${{ github.repository }}/collaborators/$reviewer_login" --jq '.login' 2>/dev/null || echo "")
+            if [[ -n "$is_collaborator" ]]; then
+              echo "User is a confirmed collaborator but email is private"
+            fi
+          fi
+          
+          # Final fallback: Use a default email pattern or leave empty
+          if [[ -z "$reviewer_email" || "$reviewer_email" == "null" ]]; then
+            echo "Could not retrieve email address. User likely has private email settings."
+            reviewer_email=""
+          fi
+          
+          echo "reviewer_email=$reviewer_email" >> $GITHUB_OUTPUT
+          echo "Final result - Reviewer: $reviewer_login, Email: $reviewer_email"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Assign Asana Task
+        if: steps.get-reviewer-email.outputs.skip_assignment == 'false'
+        uses: ./
+        with:
+          token: ${{ secrets.asana_access_token }}
+          pr-url: ${{ github.event.pull_request.html_url }}
+          project-id: ${{ secrets.asana_project_id }}
+          branch-name: ${{ github.event.pull_request.head.ref }}
+          reviewer-login: ${{ github.event.requested_reviewer.login }}

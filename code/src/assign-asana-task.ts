@@ -1,12 +1,23 @@
 import * as core from '@actions/core';
-import {assignAsanaTask, findAsanaUserByEmail, getTaskFromProject, getWorkspaceGid} from "./assign-asana-task-library";
-// CodeReviewTaimurSDone: this file isnt following the TS formatting standards
+import {
+    assignAsanaTask,
+    findAsanaUserByEmail,
+    getReviewerEmail,
+    getTaskFromProject,
+    getWorkspaceGid
+} from "./assign-asana-task-library";
+import {Octokit} from "@octokit/rest";
+
 export const assignAsanaTaskAction = async () => {
     try {
+        const octokit = new Octokit({auth: process.env.GITHUB_TOKEN});
+
         const asanaAuthToken = core.getInput('token');
         const prUrl = core.getInput('pr-url');
         const asanaProjectId = core.getInput('project-id');
-        const assigneeEmail = core.getInput('assignee-email');
+        const reviewerLogin = core.getInput('reviewer-login');
+        const branchName = core.getInput('branch-name');
+        let assigneeEmail = core.getInput('assignee-email');
         let taskId: string | null = core.getInput('task-id');
 
         core.info(`PR URL: ${prUrl}`);
@@ -15,9 +26,20 @@ export const assignAsanaTaskAction = async () => {
         core.info(`Task ID: ${taskId}`);
 
         if (!assigneeEmail) {
-            core.info('No assignee email provided, skipping task assignment');
-            return;
+            if (!branchName || !reviewerLogin) {
+                core.info('Insufficient information provided to determine reviewer username');
+            }
+
+            const result = await getReviewerEmail(octokit, reviewerLogin, branchName);
+            if (result.skipAssignment || (result.reviewerEmail === '')) {
+                core.info('No assignee email provided, skipping task assignment');
+                return;
+            }
+
+            assigneeEmail = result.reviewerEmail;
         }
+
+        core.info(`Assignee Email: ${assigneeEmail}`);
 
         if (!taskId && !prUrl) {
             core.info('Neither Task ID nor PR Url provided, skipping task assignment');

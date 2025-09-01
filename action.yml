@@ -13,7 +13,13 @@ inputs:
     required: true
   assignee-email:
     description: "Email of person to assign task to"
-    required: true
+    required: false
+  reviewer-login:
+    description: "Reviewer username"
+    required: false
+  branch-name:
+    description: "Name of current branch (Used for searching commits to find reviewer email"
+    required: false
   task-id:
     description: "The asana task ID to be updated. If not passed, then uses the pr-url to get the asana task id"
     required: false
